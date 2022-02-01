@@ -1,0 +1,3 @@
+*.svg
+train_data.csv
+__pycache__/

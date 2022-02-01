@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import pandas as pd
+from skimage.transform import resize
 import os
 import nibabel as nib
 from albumentations import Compose
@@ -103,3 +104,35 @@ class BratsDataset(Dataset):
         mask = np.moveaxis(mask, (0, 1, 2, 3), (0, 3, 2, 1))
 
         return mask
+
+def get_augmentations(phase):
+    list_transforms = []
+    
+    list_trfms = Compose(list_transforms)
+    return list_trfms
+
+
+def get_dataloader(
+    dataset: torch.utils.data.Dataset,
+    path_to_csv: str,
+    phase: str,
+    fold: int = 0,
+    batch_size: int = 1,
+    num_workers: int = 4,
+    ):
+    '''Returns: dataloader for the model training'''
+    df = pd.read_csv(path_to_csv)
+    
+    train_df = df.loc[df['fold'] != fold].reset_index(drop=True)
+    val_df = df.loc[df['fold'] == fold].reset_index(drop=True)
+
+    df = train_df if phase == "train" else val_df
+    dataset = dataset(df, phase)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=True,
+        shuffle=True,   
+    )
+    return dataloader

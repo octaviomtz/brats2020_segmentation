@@ -1,3 +1,4 @@
 *.svg
 train_data.csv
 __pycache__/
+utils/__pycache__/

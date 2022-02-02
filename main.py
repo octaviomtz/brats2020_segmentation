@@ -82,7 +82,7 @@ class GlobalConfig:
     train_root_dir = f'{path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData'
     test_root_dir = f'{path_source}/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData'
     path_to_csv = './train_data.csv'
-    pretrained_model_path = 'brats2020logs/unet/last_epoch_model.pth'
+    pretrained_model_path = None # 'brats2020logs/unet/last_epoch_model.pth'
     train_logs_path = 'brats2020logs/unet/train_log.csv'
     ae_pretrained_model_path = 'brats2020logs/ae/autoencoder_best_model.pth'
     tab_data = 'brats2020logs/data/df_with_voxel_stats_and_latent_features.csv'
@@ -343,3 +343,32 @@ class Trainer:
         pd.DataFrame(
             dict(zip(log_names, logs))
         ).to_csv("train_log.csv", index=False)
+
+# %%
+model = UNet3d(in_channels=4, n_classes=3, n_channels=24) #XX GPU .to('cuda')
+
+# %%
+trainer = Trainer(net=model,
+                  dataset=BratsDataset,
+                  criterion=BCEDiceLoss(),
+                  lr=5e-4,
+                  accumulation_steps=4,
+                  batch_size=1,
+                  fold=0,
+                  num_epochs=1,
+                  path_to_csv = config.path_to_csv,)
+
+if config.pretrained_model_path is not None:
+    trainer.load_predtrain_model(config.pretrained_model_path)
+    
+    # if need - load the logs.      
+    train_logs = pd.read_csv(config.train_logs_path)
+    trainer.losses["train"] =  train_logs.loc[:, "train_loss"].to_list()
+    trainer.losses["val"] =  train_logs.loc[:, "val_loss"].to_list()
+    trainer.dice_scores["train"] = train_logs.loc[:, "train_dice"].to_list()
+    trainer.dice_scores["val"] = train_logs.loc[:, "val_dice"].to_list()
+    trainer.jaccard_scores["train"] = train_logs.loc[:, "train_jaccard"].to_list()
+    trainer.jaccard_scores["val"] = train_logs.loc[:, "val_jaccard"].to_list()
+
+# %%
+trainer.run()

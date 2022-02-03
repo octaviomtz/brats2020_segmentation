@@ -1,6 +1,6 @@
-pydicom==2.2.2
-nilearn==0.9.0
-albumentations==1.1.0
+pydicom #==2.2.2
+nilearn #==0.9.0
+albumentations #==1.1.0
 # pip uninstall opencv-python==4.5.2.52
 # pip install opencv-python-headless==4.5.2.52
 # pip uninstall -r requirements_uninstall.txt -y

@@ -342,7 +342,7 @@ if __name__ == "__main__":
                     accumulation_steps=4,
                     batch_size=1,
                     fold=0,
-                    num_epochs=1,
+                    num_epochs=15,
                     path_to_csv = config.path_to_csv,)
 
     if config.pretrained_model_path is not None:

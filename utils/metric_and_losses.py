@@ -9,7 +9,7 @@ def dice_coef_metric(probabilities: torch.Tensor,
     """
     Calculate Dice score for data batch.
     Params:
-        probobilities: model outputs after activation function.
+        probabilities: model outputs after activation function.
         truth: truth values.
         threshold: threshold for probabilities.
         eps: additive to refine the estimate.
@@ -38,7 +38,7 @@ def jaccard_coef_metric(probabilities: torch.Tensor,
     """
     Calculate Jaccard index for data batch.
     Params:
-        probobilities: model outputs after activation function.
+        probabilities: model outputs after activation function.
         truth: truth values.
         threshold: threshold for probabilities.
         eps: additive to refine the estimate.

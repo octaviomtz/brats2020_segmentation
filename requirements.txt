@@ -4,3 +4,7 @@ albumentations #==1.1.0
 # pip uninstall opencv-python==4.5.2.52
 # pip install opencv-python-headless==4.5.2.52
 # pip uninstall -r requirements_uninstall.txt -y
+omegaconf==2.1.0
+hydra_core==1.1.0
+tqdm==4.41.1
+hydra==2.5

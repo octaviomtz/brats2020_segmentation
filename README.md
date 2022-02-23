@@ -7,3 +7,6 @@ Each sample contains T1, post-contrast T1-weighted, T2-weighted and FLAIR scan m
 ## Results
 Unet results after 50 epochs.
 ![unet_results_50ep](figures/unet_results_50ep.png?raw=true) 
+
+## Example from
+https://www.kaggle.com/polomarco/brats20-3dunet-3dautoencoder

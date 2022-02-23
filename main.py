@@ -1,29 +1,23 @@
-# https://www.kaggle.com/polomarco/brats20-3dunet-3dautoencoder
+import numpy as np
+from scipy import stats
+import pandas as pd
 from tqdm import tqdm
 import os
 import time
 from random import randint
-
-import numpy as np
-from scipy import stats
-import pandas as pd
-
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 from sklearn.model_selection import KFold
-
 import nibabel as nib
 import pydicom as pdm
 import nilearn as nl
 import nilearn.plotting as nlplt
 import h5py
-
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.animation as anim
-
 import seaborn as sns
 import imageio
 from skimage.transform import resize
@@ -37,15 +31,17 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
-
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.nn import MSELoss
 
-
 import albumentations as A
 from albumentations import Compose, HorizontalFlip
 from albumentations.pytorch import ToTensor#, ToTensorV2 
+
+import hydra
+from omegaconf import DictConfig, OmegaConf
+import logging
 
 import warnings
 warnings.simplefilter("ignore")
@@ -55,11 +51,16 @@ from utils.torch_dataset import BratsDataset, get_dataloader
 from utils.metric_and_losses import dice_coef_metric_per_classes, jaccard_coef_metric_per_classes, Meter, BCEDiceLoss 
 from utils.Unet import UNet3d 
 
-if __name__ == "__main__":
-    path_source = '/content/drive/MyDrive/Datasets/brats20-dataset-training-validation'
+@hydra.main(config_path="config", config_name="config.yaml")
+def main(cfg: DictConfig):
+    #HYDRA
+    log = logging.getLogger(__name__)
+    log.info(OmegaConf.to_yaml(cfg))
+    path_orig = hydra.utils.get_original_cwd()
 
-    sample_filename = f'{path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001/BraTS20_Training_001_flair.nii'
-    sample_filename_mask = f'{path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001/BraTS20_Training_001_seg.nii'
+    # path_source = '/content/drive/MyDrive/Datasets/brats20-dataset-training-validation'
+    sample_filename = f'{cfg.path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001/BraTS20_Training_001_flair.nii'
+    sample_filename_mask = f'{cfg.path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001/BraTS20_Training_001_seg.nii'
 
     sample_img = nib.load(sample_filename)
     sample_img = np.asanyarray(sample_img.dataobj)
@@ -70,18 +71,14 @@ if __name__ == "__main__":
     print("img shape ->", sample_img.shape)
     print("mask shape ->", sample_mask.shape)
 
-    plot_data_overview(path_source, sample_img, sample_mask)
+    plot_data_overview(cfg.path_source, sample_img, sample_mask)
 
-    class GlobalConfig:
-        root_dir = path_source
-        train_root_dir = f'{path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData'
-        test_root_dir = f'{path_source}/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData'
-        path_to_csv = './train_data.csv'
-        pretrained_model_path = 'brats2020logs/unet/last_epoch_model.pth'
-        train_logs_path = 'brats2020logs/unet/train_log.csv'
-        ae_pretrained_model_path = 'brats2020logs/ae/autoencoder_best_model.pth'
-        tab_data = 'brats2020logs/data/df_with_voxel_stats_and_latent_features.csv'
-        seed = 0
+    root_dir = cfg.path_source
+    train_root_dir = f'{cfg.path_source}{cfg.train_root_dir}'
+    test_root_dir = f'{cfg.path_source}{cfg.test_root_dir}'
+    path_to_csv = f'{path_orig}/train_data.csv'
+    pretrained_model_path = f'{path_orig}{cfg.pretrained_model_path}'
+    train_logs_path = f'{path_orig}{cfg.train_logs_path}'
         
     def seed_everything(seed: int):
         np.random.seed(seed)
@@ -89,11 +86,10 @@ if __name__ == "__main__":
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
         
-    config = GlobalConfig()
-    seed_everything(config.seed)
+    seed_everything(cfg.seed)
 
-    survival_info_df = pd.read_csv(f'{path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/survival_info.csv')
-    name_mapping_df = pd.read_csv(f'{path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/name_mapping.csv')
+    survival_info_df = pd.read_csv(f'{cfg.path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/survival_info.csv')
+    name_mapping_df = pd.read_csv(f'{cfg.path_source}/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/name_mapping.csv')
 
     name_mapping_df.rename({'BraTS_2020_subject_ID': 'Brats20ID'}, axis=1, inplace=True) 
 
@@ -101,14 +97,12 @@ if __name__ == "__main__":
 
     paths = []
     for _, row  in df.iterrows():
-        
         id_ = row['Brats20ID']
         phase = id_.split("_")[-2]
-        
         if phase == 'Training':
-            path = os.path.join(config.train_root_dir, id_)
+            path = os.path.join(train_root_dir, id_)
         else:
-            path = os.path.join(config.test_root_dir, id_)
+            path = os.path.join(test_root_dir, id_)
         paths.append(path)
         
     df['path'] = paths
@@ -121,22 +115,18 @@ if __name__ == "__main__":
     train_data["Age_rank"] =  train_data["Age"] // 10 * 10
     train_data = train_data.loc[train_data['Brats20ID'] != 'BraTS20_Training_355'].reset_index(drop=True, )
 
-    skf = StratifiedKFold(
-        n_splits=7, random_state=config.seed, shuffle=True
-    )
-    for i, (train_index, val_index) in enumerate(
-            skf.split(train_data, train_data["Age_rank"])
-            ):
-            train_data.loc[val_index, "fold"] = i
+    skf = StratifiedKFold(n_splits=7, random_state=cfg.seed, shuffle=True)
+    for i, (train_index, val_index) in enumerate(skf.split(train_data, train_data["Age_rank"])):
+        train_data.loc[val_index, "fold"] = i
 
     train_df = train_data.loc[train_data['fold'] != 0].reset_index(drop=True)
     val_df = train_data.loc[train_data['fold'] == 0].reset_index(drop=True)
 
     test_df = df.loc[~df['Age'].notnull()].reset_index(drop=True)
     print("train_df ->", train_df.shape, "val_df ->", val_df.shape, "test_df ->", test_df.shape)
-    train_data.to_csv("train_data.csv", index=False)
+    train_data.to_csv(f"{path_orig}/train_data.csv", index=False)
 
-    dataloader = get_dataloader(dataset=BratsDataset, path_to_csv='train_data.csv', phase='valid', fold=0)
+    dataloader = get_dataloader(dataset=BratsDataset, path_to_csv=f'{path_orig}/train_data.csv', phase='valid', fold=0)
     len(dataloader)
 
 
@@ -338,18 +328,18 @@ if __name__ == "__main__":
     trainer = Trainer(net=model,
                     dataset=BratsDataset,
                     criterion=BCEDiceLoss(),
-                    lr=5e-4,
-                    accumulation_steps=4,
-                    batch_size=1,
-                    fold=0,
-                    num_epochs=15,
-                    path_to_csv = config.path_to_csv,)
+                    lr= cfg.lr,
+                    accumulation_steps= cfg.accumulation_steps,
+                    batch_size= cfg.batch_size,
+                    fold= cfg.fold,
+                    num_epochs= cfg.num_epochs,
+                    path_to_csv = path_to_csv,)
 
-    if config.pretrained_model_path is not None:
-        trainer.load_predtrain_model(config.pretrained_model_path)
+    if pretrained_model_path is not None:
+        trainer.load_predtrain_model(pretrained_model_path)
         
         # if need - load the logs.      
-        train_logs = pd.read_csv(config.train_logs_path)
+        train_logs = pd.read_csv(train_logs_path)
         trainer.losses["train"] =  train_logs.loc[:, "train_loss"].to_list()
         trainer.losses["val"] =  train_logs.loc[:, "val_loss"].to_list()
         trainer.dice_scores["train"] = train_logs.loc[:, "train_dice"].to_list()
@@ -364,3 +354,6 @@ if __name__ == "__main__":
 
     torch.cuda.current_device()
     torch.cuda.get_device_name(0)
+
+if __name__ == "__main__":
+    main()

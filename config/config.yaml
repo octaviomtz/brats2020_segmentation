@@ -1,0 +1,19 @@
+num_epochs: 1
+lr: 5e-4
+accumulation_steps: 4
+batch_size: 1
+fold: 0
+
+path_source: '/content/drive/MyDrive/Datasets/brats20-dataset-training-validation'
+sample_filename: '/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001/BraTS20_Training_001_flair.nii'
+sample_filename_mask: '/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001/BraTS20_Training_001_seg.nii'
+
+root_dir: path_source
+train_root_dir: '/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData'
+test_root_dir: '/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData'
+path_to_csv: './train_data.csv'
+pretrained_model_path: '/brats2020logs/unet/last_epoch_model.pth'
+train_logs_path: '/brats2020logs/unet/train_log.csv'
+ae_pretrained_model_path: '/brats2020logs/ae/autoencoder_best_model.pth'
+tab_data: '/brats2020logs/data/df_with_voxel_stats_and_latent_features.csv'
+seed: 0
